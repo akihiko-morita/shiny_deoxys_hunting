@@ -2,12 +2,15 @@ import pyautogui
 import time
 import math
 
-# 🎯 特定したターゲット情報
+# 座標の色判定が正しく動くかチェックするプログラム
+# color_huntで設定した情報を入れて動けばそれをmain.pyへ反映させる
+
+# 特定したターゲット情報
 TARGET_X = 1343
 TARGET_Y = 152
 NORMAL_R, NORMAL_G, NORMAL_B = 254, 132, 73
 
-# 🎨 判定の「許容誤差」の設定
+# 判定の「許容誤差」の設定
 # 映像の微妙なノイズや処理落ちで1〜2前後数値がズレても反応できるようにします
 THRESHOLD = 5 
 
