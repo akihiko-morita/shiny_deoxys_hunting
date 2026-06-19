@@ -4,35 +4,50 @@ import serial
 import smtplib
 import time
 import winsound
+import json
+import sys
 
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
+# 設定ファイル読込
+try:
+    with open("config.json", "r", encoding="utf-8") as f:
+        config = json.load(f)
+except FileNotFoundError:
+    print("Error: config.json が見つかりません。")
+    sys.exit()
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 【メール通知の設定】お使いの環境に合わせて書き換えてください
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SMTP_SERVER = "smtp.gmail.com"        # Gmailのサーバー（そのままでOK）
-SMTP_PORT = 587                       # TLS通信のポート（そのままでOK）
-
-# 送信元の設定
-SENDER_EMAIL = "sender@gmail.com"  # 送信側(アプリ側)のGmailアドレス
-SENDER_PASSWORD = "xxxx xxxx xxxx xxxx" # 手順1で取得した16桁のアプリパスワード
-
-# 送信先の設定（スマホで気付きやすいアドレスがおすすめ）
-TO_EMAIL = "your@gmail.com"  # 通知を受け取りたいメールアドレス
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 587
+# 送信元の設定(config.jsonから取得)
+user_data = config.get("USER_INFO", {})
+SENDER_EMAIL = user_data.get("SENDER_MAIL")  # あなたのGmailアドレス
+SENDER_PASSWORD = user_data.get("SENDER_MAIL_PASS") # 取得した16桁のアプリパスワード
+TO_EMAIL = user_data.get("TO_MAIL")  # 通知を受け取りたいメールアドレス
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 【固定設定】ターゲットの座標と通常色のRGB
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TARGET_X = 1343
-TARGET_Y = 152
-NORMAL_R, NORMAL_G, NORMAL_B = 254, 132, 73
+TARGET_NAME = "ミュウツー"
+
+# TARGET_NAMEに紐づく情報を取得(config.jsonから)
+target_list = config.get("TARGET_INFO", {})
+pokemon_data = target_list[TARGET_NAME]
+TARGET_X = pokemon_data["TARGET_X"]
+TARGET_Y = pokemon_data["TARGET_Y"]
+NORMAL_R = pokemon_data["NORMAL_R"]
+NORMAL_G = pokemon_data["NORMAL_G"]
+NORMAL_B = pokemon_data["NORMAL_B"]
 
 THRESHOLD = 5      # 色の許容誤差
 TIMEOUT_SEC = 40   # 色違いとみなすタイムアウト時間（秒）
 
 TODAY_STR = time.strftime("%Y-%m-%d", time.localtime())
-LOG_FILE_PATH = f"deoxys_hunt_{TODAY_STR}.log"
+LOG_FILE_PATH = f"{TARGET_NAME}_hunt_{TODAY_STR}.log"
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 各種関数定義
@@ -41,7 +56,7 @@ def check_screen():
     """通常色判定を同時に行う関数"""
     screenshot = pyautogui.screenshot()
     
-    # デオキシスの色チェック
+    # 色チェック
     deoxys_color = screenshot.getpixel((TARGET_X, TARGET_Y))
     is_normal = (abs(deoxys_color[0] - NORMAL_R) <= THRESHOLD and
                  abs(deoxys_color[1] - NORMAL_G) <= THRESHOLD and
@@ -54,9 +69,9 @@ def send_notification(count):
     msg = MIMEMultipart()
     msg['From'] = SENDER_EMAIL
     msg['To'] = TO_EMAIL
-    msg['Subject'] = "✨✨【速報】色違いデオキシスが出現しました！ ✨✨"
+    msg['Subject'] = f"✨✨【速報】色違い{TARGET_NAME}出現しました！ ✨✨"
 
-    body = f"自動厳選マクロからの通知です。\n\n第 {count} 回目の周回にて、色違いデオキシスを検知しました！\nシステムを安全に停止しています。Switchの画面を確認してください。"
+    body = f"自動厳選マクロからの通知です。\n\n第 {count} 回目の周回にて、色違い{TARGET_NAME}を検知しました！\nシステムを安全に停止しています。Switchの画面を確認してください。"
     msg.attach(MIMEText(body, 'plain', 'utf-8'))
 
     try:
@@ -71,7 +86,7 @@ def send_notification(count):
 
 def log(message):
     """画面にログを表示し、同時に日付つきファイルにも追記する関数"""
-    current_time = time.strftime("%H:%M:%S", time.localtime())
+    current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     log_line = (f"[{current_time}] {message}")
     print(log_line)
     with open(LOG_FILE_PATH, "a", encoding="utf-8") as f:
@@ -89,16 +104,16 @@ except Exception as e:
     exit()
 
 print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-print(" 【ツインシステム】デオキシス自動厳選マクロ (メール通知搭載版)")
+print(f" 【ツインシステム】{TARGET_NAME}自動厳選マクロ (メール通知搭載版)")
 print(" 終了するには ターミナルで [Ctrl + C] を押してください。")
 print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 
-loop_count = 1 #中断した場合はここをいじれば途中からカウントできます
+loop_count = 155 #中断した場合はここをいじれば途中からカウントできます
 
 try:
     while True:
         log(f"---- 厳選周回 第 {loop_count} 回目 スタート ---")
-        log("デオキシス出現待ちフェーズ開始...")
+        log(f"{TARGET_NAME}出現待ちフェーズ開始...")
         
         start_time = time.time()
         is_shiny = False  # 色違いフラグ
@@ -106,7 +121,7 @@ try:
         while True:
             is_normal = check_screen()
             
-            # 通常色デオキシスが目の前に現れたかチェック
+            # 通常色が目の前に現れたかチェック
             if is_normal:
                 log("【通常色を検知】リセットシークエンスへ移行します。")
                 break
@@ -128,7 +143,7 @@ try:
         # 出現待ちループを抜けたあとの分岐
         if is_shiny:
             print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-            print(" ✨✨✨ 色違いデオキシスが出現しました！ ✨✨✨")
+            print(f" ✨✨✨ 色違い{TARGET_NAME}が出現しました！ ✨✨✨")
             print(" 🚀 メールを送信し、システムを安全に停止します。")
             print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
             
